@@ -1,39 +1,67 @@
 import { Preloader, OrderInfoUI } from '@ui';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
+
+import { selectFeedOrders } from '../../services/slices/feed-slice';
+import { selectIngredients } from '../../services/slices/ingredients-slice';
+import {
+  clearOrderDetails,
+  fetchOrderByNumber,
+  selectOrderDetails,
+  selectOrderDetailsError,
+  selectOrderDetailsLoading,
+} from '../../services/slices/order-details-slice';
+import { selectProfileOrders } from '../../services/slices/profile-orders-slice';
+import { useDispatch, useSelector } from '../../services/store';
 
 import type { TIngredient } from '@utils-types';
 
+type TIngredientsWithCount = Record<string, TIngredient & { count: number }>;
+
 export const OrderInfo = (): React.JSX.Element => {
-  /** TODO: взять переменные orderData и ingredients из стора */
-  const orderData = {
-    createdAt: '',
-    ingredients: [],
-    _id: '',
-    status: '',
-    name: '',
-    updatedAt: 'string',
-    number: 0,
-  };
+  const { number } = useParams<{ number: string }>();
+  const dispatch = useDispatch();
 
-  const ingredients: TIngredient[] = [];
+  const feedOrders = useSelector(selectFeedOrders);
+  const profileOrders = useSelector(selectProfileOrders);
+  const ingredients = useSelector(selectIngredients);
+  const fetchedOrder = useSelector(selectOrderDetails);
+  const isLoading = useSelector(selectOrderDetailsLoading);
+  const error = useSelector(selectOrderDetailsError);
 
-  /* Готовим данные для отображения */
+  const orderNumber = Number(number);
+
+  const storedOrder = useMemo(
+    () =>
+      [...feedOrders, ...profileOrders].find((order) => order.number === orderNumber),
+    [feedOrders, profileOrders, orderNumber]
+  );
+
+  useEffect(() => {
+    if (!number || storedOrder) return;
+
+    void dispatch(fetchOrderByNumber(orderNumber));
+
+    return (): void => {
+      dispatch(clearOrderDetails());
+    };
+  }, [dispatch, number, orderNumber, storedOrder]);
+
+  const currentOrder =
+    storedOrder ?? (fetchedOrder?.number === orderNumber ? fetchedOrder : null);
+
   const orderInfo = useMemo(() => {
-    if (!orderData || !ingredients.length) return null;
+    if (!currentOrder || !ingredients.length) return null;
 
-    const date = new Date(orderData.createdAt);
+    const date = new Date(currentOrder.createdAt);
 
-    type TIngredientsWithCount = Record<string, TIngredient & { count: number }>;
-
-    const ingredientsInfo = orderData.ingredients.reduce(
+    const ingredientsInfo = currentOrder.ingredients.reduce(
       (acc: TIngredientsWithCount, item) => {
         if (!acc[item]) {
-          const ingredient = ingredients.find((ing) => ing._id === item);
+          const ingredient = ingredients.find((element) => element._id === item);
+
           if (ingredient) {
-            acc[item] = {
-              ...ingredient,
-              count: 1,
-            };
+            acc[item] = { ...ingredient, count: 1 };
           }
         } else {
           acc[item].count++;
@@ -49,15 +77,14 @@ export const OrderInfo = (): React.JSX.Element => {
       0
     );
 
-    return {
-      ...orderData,
-      ingredientsInfo,
-      date,
-      total,
-    };
-  }, [orderData, ingredients]);
+    return { ...currentOrder, ingredientsInfo, date, total };
+  }, [currentOrder, ingredients]);
 
-  if (!orderInfo) {
+  if (error && !currentOrder) {
+    return <p>{error}</p>;
+  }
+
+  if (isLoading || !orderInfo) {
     return <Preloader />;
   }
 
