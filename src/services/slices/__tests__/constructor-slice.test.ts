@@ -101,8 +101,7 @@ describe('Редьюсер конструктора бургера', () => {
 
     const state = constructorReducer(previousState, removeIngredient('id-1'));
 
-    expect(state.ingredients).toHaveLength(1);
-    expect(state.ingredients[0].id).toBe('id-2');
+    expect(state.ingredients).toEqual([{ ...secondFilling, id: 'id-2' }]);
   });
 
   it('изменяет порядок начинок', () => {
@@ -116,8 +115,10 @@ describe('Редьюсер конструктора бургера', () => {
 
     const state = constructorReducer(previousState, moveIngredient({ from: 0, to: 1 }));
 
-    expect(state.ingredients[0].id).toBe('id-2');
-    expect(state.ingredients[1].id).toBe('id-1');
+    expect(state.ingredients).toEqual([
+      { ...secondFilling, id: 'id-2' },
+      { ...filling, id: 'id-1' },
+    ]);
   });
 
   it('не изменяет порядок при перемещении за границы массива', () => {
@@ -131,7 +132,7 @@ describe('Редьюсер конструктора бургера', () => {
 
     const state = constructorReducer(previousState, moveIngredient({ from: 0, to: 5 }));
 
-    expect(state.ingredients.map((item) => item.id)).toEqual(['id-1', 'id-2']);
+    expect(state.ingredients).toEqual(previousState.ingredients);
   });
 
   it('очищает конструктор после успешного создания заказа', () => {
